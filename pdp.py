@@ -207,7 +207,7 @@ if menu == "📋 Daftar Campaign & Banner":
         )
 
         with st.container(border=True):
-          # Kita sesuaikan kolom agar ada tempat untuk Gambar Referensi
+          # Proporsi kolom disesuaikan agar tombol aksi (edit & hapus) muat dengan baik
           c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
               [0.5, 0.9, 0.9, 1.1, 1.1, 0.9, 0.9, 0.8, 1.0, 0.6]
           )
@@ -230,8 +230,8 @@ if menu == "📋 Daftar Campaign & Banner":
           with c4:
             st.markdown("🏷️ **Campaign:**")
             c_name_short = (
-                str(row["CAMPAIGN NAME"])[:25] + "..."
-                if len(str(row["CAMPAIGN NAME"])) > 25
+                str(row["CAMPAIGN NAME"])[:22] + "..."
+                if len(str(row["CAMPAIGN NAME"])) > 22
                 else str(row["CAMPAIGN NAME"])
             )
             with st.popover("📄 Detail"):
@@ -245,10 +245,10 @@ if menu == "📋 Daftar Campaign & Banner":
             st.write(c_name_short)
 
           with c5:
-            st.markdown("🖼️ **Referensi:**")
+            st.markdown("🖼️ **Ref:**")
             img_path = str(row["CONTOH/REFERENSI BANNER"])
             if img_path and os.path.exists(img_path):
-              st.image(img_path, width=70)
+              st.image(img_path, width=55)
             elif img_path:
               st.write(img_path)
             else:
@@ -265,7 +265,7 @@ if menu == "📋 Daftar Campaign & Banner":
               st.markdown(f"[Link]({prod_val})")
             else:
               sku_short = (
-                  prod_val[:12] + "..." if len(prod_val) > 12 else prod_val
+                  prod_val[:10] + "..." if len(prod_val) > 10 else prod_val
               )
               with st.popover("📦 SKU"):
                 st.text_area(

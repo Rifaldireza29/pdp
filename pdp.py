@@ -25,16 +25,18 @@ def get_gspread_client():
   return client
 
 
-# Fungsi untuk memuat data dari Google Sheets berdasarkan tab yang dipilih
-def load_database(worksheet_name):
+# Fungsi untuk memuat seluruh data dari satu sheet utama (misal: sheet pertama)
+def load_database():
   try:
     client = get_gspread_client()
-    sheet = client.open("Content Database Sosmed").worksheet(worksheet_name)
+    # Mengambil dari sheet pertama (bisa dinamai "Master Campaign" atau "Database")
+    sheet = client.open("Content Database Sosmed").sheet1
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
 
     expected_columns = [
         "NO",
+        "MARKETPLACE",
         "TANGGAL BUAT",
         "CAMPAIGN NAME",
         "UKURAN BANNER",
@@ -60,6 +62,7 @@ def load_database(worksheet_name):
     return pd.DataFrame(
         columns=[
             "NO",
+            "MARKETPLACE",
             "TANGGAL BUAT",
             "CAMPAIGN NAME",
             "UKURAN BANNER",
@@ -72,11 +75,11 @@ def load_database(worksheet_name):
     )
 
 
-# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets pada tab yang aktif
-def save_database(df, worksheet_name):
+# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets
+def save_database(df):
   try:
     client = get_gspread_client()
-    sheet = client.open("Content Database Sosmed").worksheet(worksheet_name)
+    sheet = client.open("Content Database Sosmed").sheet1
 
     df_to_save = df.copy()
     if "UKURAN BANNER" in df_to_save.columns:
@@ -94,33 +97,15 @@ def save_database(df, worksheet_name):
 
 st.title("🛍️ PDP & Campaign Content Planner")
 st.markdown(
-    "Kelola campaign banner, tanggal pembuatan, ukuran banner, daftar SKU/link"
-    " produk, referensi gambar, link Drive, dan status."
+    "Kelola seluruh campaign banner Shopee & Tokopedia dalam satu laporan"
+    " terpadu."
 )
 
-# PILIHAN MARKETPLACE / SHEET DI SIDEBAR
-st.sidebar.title("🛒 Pilih Platform / Marketplace")
-selected_marketplace = st.sidebar.radio(
-    "Pilih Target Marketplace:", ["Shopee", "Tokopedia"]
-)
-
-# Simpan state marketplace aktif agar saat pindah menu tidak reset
-if (
-    "active_marketplace" not in st.session_state
-    or st.session_state["active_marketplace"] != selected_marketplace
-):
-  st.session_state["active_marketplace"] = selected_marketplace
-  st.session_state["content_db"] = load_database(selected_marketplace)
-  if "edit_index" in st.session_state:
-    del st.session_state["edit_index"]
-
-# Inisialisasi Session State jika belum ada
+# Inisialisasi Session State
 if "content_db" not in st.session_state:
-  st.session_state["content_db"] = load_database(selected_marketplace)
+  st.session_state["content_db"] = load_database()
 
-st.sidebar.markdown(f"📌 **Tab Aktif GSheet:** `{selected_marketplace}`")
-
-# Sidebar untuk Navigasi Menu
+# Sidebar Navigasi Menu yang bersih tanpa pilihan marketplace
 st.sidebar.title("📌 Navigasi Menu")
 menu = st.sidebar.radio(
     "Pilih Menu:",
@@ -142,12 +127,10 @@ if not os.path.exists(UPLOAD_DIR):
 if menu == "📋 Daftar Campaign & Banner":
   col_title, col_btn = st.columns([4, 1])
   with col_title:
-    st.subheader(
-        f"📋 Tabel Manajemen Campaign & Banner ({selected_marketplace})"
-    )
+    st.subheader("📋 Tabel Manajemen Seluruh Campaign & Banner")
   with col_btn:
     if st.button("🔄 Refresh Data", key="ref_menu1"):
-      st.session_state["content_db"] = load_database(selected_marketplace)
+      st.session_state["content_db"] = load_database()
       st.success("Data berhasil diperbarui dari Google Sheets!")
       st.rerun()
 
@@ -155,26 +138,35 @@ if menu == "📋 Daftar Campaign & Banner":
 
   if df.empty:
     st.info(
-        f"Belum ada data campaign untuk {selected_marketplace}. Silakan"
-        " tambah melalui menu **Tambah Campaign Baru**."
+        "Belum ada data campaign. Silakan tambah melalui menu **Tambah Campaign"
+        " Baru**."
     )
   else:
     st.markdown("### 🔍 Filter & Pencarian Data")
-    col_f1, col_f2, col_f3 = st.columns(3)
+    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
     with col_f1:
+      filter_market = st.selectbox(
+          "Filter Marketplace", ["Semua", "Shopee", "Tokopedia"]
+      )
+    with col_f2:
       filter_status = st.selectbox(
           "Filter Status", ["Semua", "Draft", "Pending", "Done"]
       )
-    with col_f2:
-      filter_tanggal = st.date_input(
-          "📅 Filter Tanggal Pembuatan", value=None, key="filter_tgl_buat"
-      )
     with col_f3:
+      filter_tanggal = st.date_input(
+          "📅 Filter Tanggal", value=None, key="filter_tgl_buat"
+      )
+    with col_f4:
       search_query = st.text_input(
           "🔍 Cari Campaign Name / SKU", placeholder="Ketik kata kunci..."
       )
 
     filtered_df = df.copy()
+
+    if filter_market != "Semua":
+      filtered_df = filtered_df[
+          filtered_df["MARKETPLACE"].str.lower() == filter_market.lower()
+      ]
 
     if filter_status != "Semua":
       filtered_df = filtered_df[
@@ -215,14 +207,18 @@ if menu == "📋 Daftar Campaign & Banner":
         )
 
         with st.container(border=True):
-          c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
-              [0.7, 1.1, 1.4, 1.1, 1, 1, 1.1, 0.7]
+          c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
+              [0.6, 1.1, 1.1, 1.3, 1, 1, 0.9, 1.1, 0.6]
           )
 
           with c1:
-            st.markdown(f"📌 **No. {row['NO']}**")
+            st.markdown(f"📌 **{row['NO']}**")
 
           with c2:
+            st.markdown("🛒 **Market:**")
+            st.write(f"**{row['MARKETPLACE']}**")
+
+          with c3:
             st.markdown("📅 **Dibuat:**")
             st.write(
                 str(row["TANGGAL BUAT"])
@@ -230,66 +226,66 @@ if menu == "📋 Daftar Campaign & Banner":
                 else "-"
             )
 
-          with c3:
+          with c4:
             st.markdown("🏷️ **Campaign:**")
             c_name_short = (
-                str(row["CAMPAIGN NAME"])[:35] + "..."
-                if len(str(row["CAMPAIGN NAME"])) > 35
+                str(row["CAMPAIGN NAME"])[:30] + "..."
+                if len(str(row["CAMPAIGN NAME"])) > 30
                 else str(row["CAMPAIGN NAME"])
             )
-            with st.popover("📄 Detail Campaign"):
+            with st.popover("📄 Detail"):
               st.text_area(
                   "Campaign Name",
                   value=str(row["CAMPAIGN NAME"]),
-                  height=130,
+                  height=120,
                   disabled=True,
                   label_visibility="collapsed",
               )
             st.write(c_name_short)
 
-          with c4:
+          with c5:
             st.markdown("📐 **Ukuran:**")
             st.write(uk_str if uk_str else "-")
 
-          with c5:
-            st.markdown("📦 **Product Show:**")
+          with c6:
+            st.markdown("📦 **Product:**")
             prod_val = str(row["PRODUCT SHOOW BANNER"])
             if "http" in prod_val:
-              st.markdown(f"[Buka Link Produk]({prod_val})")
+              st.markdown(f"[Link]({prod_val})")
             else:
               sku_short = (
-                  prod_val[:20] + "..." if len(prod_val) > 20 else prod_val
+                  prod_val[:15] + "..." if len(prod_val) > 15 else prod_val
               )
-              with st.popover("📦 Lihat SKU"):
+              with st.popover("📦 SKU"):
                 st.text_area(
                     "Product Show",
                     value=prod_val,
-                    height=100,
+                    height=90,
                     disabled=True,
                     label_visibility="collapsed",
                 )
               st.write(sku_short if sku_short else "-")
 
-          with c6:
+          with c7:
             st.markdown("🔗 **Drive:**")
             drive_val = str(row["LINK DRIVE"])
             if drive_val.startswith("http"):
-              st.markdown(f"[Buka Link]({drive_val})")
+              st.markdown(f"[Buka]({drive_val})")
             else:
-              st.write(drive_val if drive_val else "-")
+              st.write("-")
 
-          with c7:
+          with c8:
             st.markdown("📊 **Status:**")
             status_options = ["Draft", "Pending", "Done"]
             current_status = (
                 row["STATUS"] if row["STATUS"] in status_options else "Draft"
             )
-            widget_key = f"status_inline_{selected_marketplace}_{row['NO']}_{index}"
+            widget_key = f"status_inline_{row['NO']}_{index}"
 
             def update_status_inline(r_idx=index, w_key=widget_key):
               new_val = st.session_state[w_key]
               st.session_state["content_db"].loc[r_idx, "STATUS"] = new_val
-              save_database(st.session_state["content_db"], selected_marketplace)
+              save_database(st.session_state["content_db"])
 
             st.selectbox(
                 "Status",
@@ -309,24 +305,22 @@ if menu == "📋 Daftar Campaign & Banner":
               with st.popover("📝 Catatan"):
                 st.write(catatan_txt)
 
-          with c8:
+          with c9:
             st.markdown("⚡ **Aksi:**")
             col_e, col_d = st.columns(2)
             with col_e:
-              if st.button("✏️", key=f"edit_row_{index}", help="Edit Data"):
+              if st.button("✏️", key=f"edit_row_{index}", help="Edit"):
                 st.session_state["edit_index"] = index
                 st.rerun()
             with col_d:
-              if st.button("🗑️", key=f"del_row_{index}", help="Hapus Data"):
+              if st.button("🗑️", key=f"del_row_{index}", help="Hapus"):
                 st.session_state["content_db"] = (
                     st.session_state["content_db"].drop(index).reset_index(drop=True)
                 )
                 st.session_state["content_db"]["NO"] = range(
                     1, len(st.session_state["content_db"]) + 1
                 )
-                save_database(
-                    st.session_state["content_db"], selected_marketplace
-                )
+                save_database(st.session_state["content_db"])
                 st.success("Data berhasil dihapus!")
                 st.rerun()
 
@@ -338,6 +332,15 @@ if menu == "📋 Daftar Campaign & Banner":
           st.subheader(f"✏️ Edit Data Baris No. {r_data['NO']}")
 
           with st.form("form_edit_campaign"):
+            edit_market = st.selectbox(
+                "Marketplace",
+                ["Shopee", "Tokopedia"],
+                index=(
+                    0
+                    if str(r_data["MARKETPLACE"]).lower() == "shopee"
+                    else 1
+                ),
+            )
             edit_tgl_buat = st.date_input(
                 "Tanggal Pembuatan",
                 value=(
@@ -403,6 +406,7 @@ if menu == "📋 Daftar Campaign & Banner":
 
             if btn_update:
               db_df = st.session_state["content_db"]
+              db_df.loc[e_idx, "MARKETPLACE"] = edit_market
               db_df.loc[e_idx, "TANGGAL BUAT"] = edit_tgl_buat.strftime(
                   "%Y-%m-%d"
               )
@@ -414,7 +418,7 @@ if menu == "📋 Daftar Campaign & Banner":
               db_df.loc[e_idx, "CONTOH/REFERENSI BANNER"] = edit_referensi
               db_df.loc[e_idx, "CATATAN"] = edit_catatan
 
-              save_database(db_df, selected_marketplace)
+              save_database(db_df)
               del st.session_state["edit_index"]
               st.success("Perubahan berhasil disimpan ke Google Sheets!")
               st.rerun()
@@ -427,11 +431,13 @@ if menu == "📋 Daftar Campaign & Banner":
 # MENU 2: TAMBAH CAMPAIGN BARU
 # ==========================================
 elif menu == "➕ Tambah Campaign Baru":
-  st.subheader(
-      f"➕ Tambah Baris Campaign Baru ke Google Sheets ({selected_marketplace})"
-  )
+  st.subheader("➕ Tambah Baris Campaign Baru ke Laporan Utama")
 
   with st.form("form_tambah_campaign", clear_on_submit=True):
+    # Pilihan marketplace langsung di dalam form
+    marketplace_pilihan = st.selectbox(
+        "Pilih Marketplace / Platform", ["Shopee", "Tokopedia"]
+    )
     tanggal_buat = st.date_input("Tanggal Pembuatan", value=date.today())
     camp_name = st.text_area(
         "Campaign Name (Judul, Periode, Promo, Hadiah, CTA)"
@@ -447,9 +453,7 @@ elif menu == "➕ Tambah Campaign Baru":
       )
     with col2:
       link_drive = st.text_input("Link Drive")
-      status = st.selectbox(
-          "Status", ["Draft", "Pending", "Done"], index=0
-      )
+      status = st.selectbox("Status", ["Draft", "Pending", "Done"], index=0)
 
     uploaded_file = st.file_uploader(
         "Upload Contoh / Referensi Banner (Gambar)",
@@ -461,7 +465,7 @@ elif menu == "➕ Tambah Campaign Baru":
 
     if submit_button:
       if camp_name:
-        st.session_state["content_db"] = load_database(selected_marketplace)
+        st.session_state["content_db"] = load_database()
         current_len = len(st.session_state["content_db"])
         new_no = current_len + 1
 
@@ -473,6 +477,7 @@ elif menu == "➕ Tambah Campaign Baru":
 
         new_data = {
             "NO": new_no,
+            "MARKETPLACE": marketplace_pilihan,
             "TANGGAL BUAT": tanggal_buat.strftime("%Y-%m-%d"),
             "CAMPAIGN NAME": camp_name,
             "UKURAN BANNER": ukuran_banner,
@@ -490,10 +495,9 @@ elif menu == "➕ Tambah Campaign Baru":
             ],
             ignore_index=True,
         )
-        save_database(st.session_state["content_db"], selected_marketplace)
+        save_database(st.session_state["content_db"])
         st.success(
-            f"Berhasil! Campaign baru tersimpan ke sheet '{selected_marketplace}'"
-            " di Google Sheets."
+            "Berhasil! Campaign baru tersimpan ke Laporan Utama Google Sheets."
         )
       else:
         st.warning("Mohon setidaknya isi kolom **Campaign Name**.")
@@ -504,13 +508,10 @@ elif menu == "➕ Tambah Campaign Baru":
 elif menu == "👔 Approval / Status Checker":
   col_title_app, col_btn_app = st.columns([4, 1])
   with col_title_app:
-    st.subheader(
-        f"👔 Panel Approval Campaign ({selected_marketplace}) & WhatsApp"
-        " Reminder"
-    )
+    st.subheader("👔 Panel Approval Campaign & WhatsApp Reminder")
   with col_btn_app:
     if st.button("🔄 Refresh Data", key="ref_menu3"):
-      st.session_state["content_db"] = load_database(selected_marketplace)
+      st.session_state["content_db"] = load_database()
       st.success("Data berhasil diperbarui!")
       st.rerun()
 
@@ -531,9 +532,7 @@ elif menu == "👔 Approval / Status Checker":
     c4.metric("Status Draft", total_draft)
 
     st.markdown("---")
-    st.markdown(
-        f"### 📋 Daftar Approval & Aksi Cepat ({selected_marketplace})"
-    )
+    st.markdown("### 📋 Daftar Approval & Aksi Cepat (Semua Marketplace)")
 
     for index, row in df.iterrows():
       uk_str = (
@@ -548,7 +547,10 @@ elif menu == "👔 Approval / Status Checker":
         )
 
         with col_info1:
-          st.markdown(f"📌 **No. {row['NO']} - {row['TANGGAL BUAT']}**")
+          st.markdown(
+              f"📌 **No. {row['NO']} | [{row['MARKETPLACE']}]**"
+          )
+          st.caption(f"Dibuat: {row['TANGGAL BUAT']}")
           c_name_short = (
               str(row["CAMPAIGN NAME"])[:40] + "..."
               if len(str(row["CAMPAIGN NAME"])) > 40
@@ -596,18 +598,20 @@ elif menu == "👔 Approval / Status Checker":
           with btn_app:
             if st.button("✅", key=f"app_btn_{index}", help="Approve (Done)"):
               df.loc[index, "STATUS"] = "Done"
-              save_database(df, selected_marketplace)
+              save_database(df)
               st.success("Disetujui (Done)!")
               st.rerun()
           with btn_rej:
             if st.button("❌", key=f"rej_btn_{index}", help="Not Approve (Pending)"):
               df.loc[index, "STATUS"] = "Pending"
-              save_database(df, selected_marketplace)
+              save_database(df)
               st.warning("Diberi status Pending / Revisi.")
               st.rerun()
 
         # Fitur Reminder WA di setiap card approval
-        with st.expander(f"📲 Kirim Reminder WhatsApp untuk No. {row['NO']}"):
+        with st.expander(
+            f"📲 Kirim Reminder WhatsApp untuk No. {row['NO']} ({row['MARKETPLACE']})"
+        ):
           daftar_tim = {
               "Pak Reza": "6281321686233",
               "Bu Emma": "628175731188",
@@ -626,7 +630,7 @@ elif menu == "👔 Approval / Status Checker":
           )
 
           pesan_wa = (
-              f"Halo *{pilihan_admin}*, mohon bantuannya untuk cek & approve campaign *{selected_marketplace}* berikut:\n\n"
+              f"Halo *{pilihan_admin}*, mohon bantuannya untuk cek & approve campaign *{row['MARKETPLACE']}* berikut:\n\n"
               f"📌 *No:* {row['NO']}\n"
               f"🏷️ *Campaign:* {row['CAMPAIGN NAME']}\n"
               f"📐 *Ukuran:* {uk_str}\n"

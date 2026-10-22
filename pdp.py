@@ -104,7 +104,7 @@ st.markdown(
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = load_database()
 
-# Sidebar Navigasi Menu dengan tambahan Rekapan
+# Sidebar Navigasi Menu
 st.sidebar.title("📌 Navigasi Menu")
 menu = st.sidebar.radio(
     "Pilih Menu:",
@@ -207,8 +207,9 @@ if menu == "📋 Daftar Campaign & Banner":
         )
 
         with st.container(border=True):
-          c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
-              [0.6, 1.1, 1.1, 1.3, 1, 1, 0.9, 1.1, 0.6]
+          # Kita sesuaikan kolom agar ada tempat untuk Gambar Referensi
+          c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+              [0.5, 0.9, 0.9, 1.1, 1.1, 0.9, 0.9, 0.8, 1.0, 0.6]
           )
 
           with c1:
@@ -229,8 +230,8 @@ if menu == "📋 Daftar Campaign & Banner":
           with c4:
             st.markdown("🏷️ **Campaign:**")
             c_name_short = (
-                str(row["CAMPAIGN NAME"])[:30] + "..."
-                if len(str(row["CAMPAIGN NAME"])) > 30
+                str(row["CAMPAIGN NAME"])[:25] + "..."
+                if len(str(row["CAMPAIGN NAME"])) > 25
                 else str(row["CAMPAIGN NAME"])
             )
             with st.popover("📄 Detail"):
@@ -244,17 +245,27 @@ if menu == "📋 Daftar Campaign & Banner":
             st.write(c_name_short)
 
           with c5:
+            st.markdown("🖼️ **Referensi:**")
+            img_path = str(row["CONTOH/REFERENSI BANNER"])
+            if img_path and os.path.exists(img_path):
+              st.image(img_path, width=70)
+            elif img_path:
+              st.write(img_path)
+            else:
+              st.write("-")
+
+          with c6:
             st.markdown("📐 **Ukuran:**")
             st.write(uk_str if uk_str else "-")
 
-          with c6:
+          with c7:
             st.markdown("📦 **Product:**")
             prod_val = str(row["PRODUCT SHOOW BANNER"])
             if "http" in prod_val:
               st.markdown(f"[Link]({prod_val})")
             else:
               sku_short = (
-                  prod_val[:15] + "..." if len(prod_val) > 15 else prod_val
+                  prod_val[:12] + "..." if len(prod_val) > 12 else prod_val
               )
               with st.popover("📦 SKU"):
                 st.text_area(
@@ -266,7 +277,7 @@ if menu == "📋 Daftar Campaign & Banner":
                 )
               st.write(sku_short if sku_short else "-")
 
-          with c7:
+          with c8:
             st.markdown("🔗 **Drive:**")
             drive_val = str(row["LINK DRIVE"])
             if drive_val.startswith("http"):
@@ -274,7 +285,7 @@ if menu == "📋 Daftar Campaign & Banner":
             else:
               st.write("-")
 
-          with c8:
+          with c9:
             st.markdown("📊 **Status:**")
             status_options = ["Draft", "Pending", "Done"]
             current_status = (
@@ -305,7 +316,7 @@ if menu == "📋 Daftar Campaign & Banner":
               with st.popover("📝 Catatan"):
                 st.write(catatan_txt)
 
-          with c9:
+          with c10:
             st.markdown("⚡ **Aksi:**")
             col_e, col_d = st.columns(2)
             with col_e:
@@ -529,8 +540,8 @@ elif menu == "👔 Approval / Status Checker":
       )
 
       with st.container(border=True):
-        col_info1, col_info2, col_info3, col_info4, col_aksi = st.columns(
-            [1.5, 1.2, 1, 1, 1.3]
+        col_info1, col_info2, col_info3, col_info4, col_info5, col_aksi = (
+            st.columns([1.2, 1.1, 1.1, 0.9, 0.9, 1.2])
         )
 
         with col_info1:
@@ -539,34 +550,42 @@ elif menu == "👔 Approval / Status Checker":
           )
           st.caption(f"Dibuat: {row['TANGGAL BUAT']}")
           c_name_short = (
-              str(row["CAMPAIGN NAME"])[:40] + "..."
-              if len(str(row["CAMPAIGN NAME"])) > 40
+              str(row["CAMPAIGN NAME"])[:30] + "..."
+              if len(str(row["CAMPAIGN NAME"])) > 30
               else str(row["CAMPAIGN NAME"])
           )
-          with st.popover("📄 Detail Campaign"):
+          with st.popover("📄 Detail"):
             st.text_area(
                 "Campaign Name",
                 value=str(row["CAMPAIGN NAME"]),
-                height=130,
+                height=120,
                 disabled=True,
                 label_visibility="collapsed",
             )
           st.write(f"🏷️ {c_name_short}")
 
         with col_info2:
+          st.markdown("🖼️ **Referensi:**")
+          img_path = str(row["CONTOH/REFERENSI BANNER"])
+          if img_path and os.path.exists(img_path):
+            st.image(img_path, width=65)
+          else:
+            st.write("-")
+
+        with col_info3:
           st.markdown("📐 **Ukuran & Status:**")
           st.write(f"Ukuran: {uk_str if uk_str else '-'}")
           st.write(f"Status: **{row['STATUS']}**")
 
-        with col_info3:
-          st.markdown("🔗 **Link Drive:**")
+        with col_info4:
+          st.markdown("🔗 **Drive:**")
           drive_val = str(row["LINK DRIVE"])
           if drive_val.startswith("http"):
             st.markdown(f"[Buka Link]({drive_val})")
           else:
             st.write("-")
 
-        with col_info4:
+        with col_info5:
           st.markdown("📝 **Catatan:**")
           catatan_txt = (
               str(row["CATATAN"])
@@ -580,7 +599,7 @@ elif menu == "👔 Approval / Status Checker":
             st.write("-")
 
         with col_aksi:
-          st.markdown("⚡ **Tombol Approval:**")
+          st.markdown("⚡ **Approval:**")
           btn_app, btn_rej = st.columns(2)
           with btn_app:
             if st.button("✅", key=f"app_btn_{index}", help="Approve (Done)"):
@@ -654,7 +673,6 @@ elif menu == "📊 Rekapan & Statistik":
   if df.empty:
     st.info("Belum ada data campaign untuk direkap.")
   else:
-    # Hitung Statistik Umum
     total_campaign = len(df)
     total_done = len(df[df["STATUS"].str.lower() == "done"])
     total_pending = len(df[df["STATUS"].str.lower() == "pending"])
@@ -678,7 +696,6 @@ elif menu == "📊 Rekapan & Statistik":
     st.markdown("---")
     st.markdown("### 📜 Daftar Riwayat Semua Campaign yang Pernah Dibuat")
 
-    # Tabel ringkasan bersih
     recap_table = df[
         [
             "NO",

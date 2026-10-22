@@ -11,6 +11,20 @@ st.set_page_config(
     page_title="PDP & Campaign Content Planner", page_icon="🛍️", layout="wide"
 )
 
+# Tambahan CSS agar card lebih rapi dan tombol aksi muat sempurna
+st.markdown(
+    """
+    <style>
+    .stButton button {
+        width: 100%;
+        padding: 4px 8px;
+        font-size: 14px;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 # Konfigurasi Akses Google Sheets via st.secrets
 SCOPE = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -207,9 +221,9 @@ if menu == "📋 Daftar Campaign & Banner":
         )
 
         with st.container(border=True):
-          # Proporsi kolom disesuaikan agar tombol aksi (edit & hapus) muat dengan baik
+          # Proporsi kolom diatur ulang agar gambar dan tombol aksi muat dengan pas
           c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
-              [0.5, 0.9, 0.9, 1.1, 1.1, 0.9, 0.9, 0.8, 1.0, 0.6]
+              [0.4, 0.8, 0.9, 1.2, 1.0, 0.9, 0.9, 0.8, 1.1, 0.9]
           )
 
           with c1:
@@ -230,8 +244,8 @@ if menu == "📋 Daftar Campaign & Banner":
           with c4:
             st.markdown("🏷️ **Campaign:**")
             c_name_short = (
-                str(row["CAMPAIGN NAME"])[:22] + "..."
-                if len(str(row["CAMPAIGN NAME"])) > 22
+                str(row["CAMPAIGN NAME"])[:20] + "..."
+                if len(str(row["CAMPAIGN NAME"])) > 20
                 else str(row["CAMPAIGN NAME"])
             )
             with st.popover("📄 Detail"):
@@ -248,9 +262,7 @@ if menu == "📋 Daftar Campaign & Banner":
             st.markdown("🖼️ **Ref:**")
             img_path = str(row["CONTOH/REFERENSI BANNER"])
             if img_path and os.path.exists(img_path):
-              st.image(img_path, width=55)
-            elif img_path:
-              st.write(img_path)
+              st.image(img_path, width=50)
             else:
               st.write("-")
 

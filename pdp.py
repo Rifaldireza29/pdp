@@ -51,7 +51,6 @@ def load_database(worksheet_name):
       for col in expected_columns:
         if col not in df.columns:
           df[col] = ""
-      # Handle Tipe List jika ukuran banner disimpan sebagai string koma
       if "UKURAN BANNER" in df.columns:
         df["UKURAN BANNER"] = df["UKURAN BANNER"].apply(
             lambda x: x.split(", ") if isinstance(x, str) and x else []
@@ -160,7 +159,6 @@ if menu == "📋 Daftar Campaign & Banner":
         " tambah melalui menu **Tambah Campaign Baru**."
     )
   else:
-    # BAGIAN FILTER-FILTER LENGKAP
     st.markdown("### 🔍 Filter & Pencarian Data")
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
@@ -178,20 +176,17 @@ if menu == "📋 Daftar Campaign & Banner":
 
     filtered_df = df.copy()
 
-    # Terapkan Filter Status
     if filter_status != "Semua":
       filtered_df = filtered_df[
           filtered_df["STATUS"].str.lower() == filter_status.lower()
       ]
 
-    # Terapkan Filter Tanggal Buat
     if filter_tanggal:
       tgl_str = filter_tanggal.strftime("%Y-%m-%d")
       filtered_df = filtered_df[
           filtered_df["TANGGAL BUAT"].astype(str).str.startswith(tgl_str)
       ]
 
-    # Terapkan Search Query
     if search_query:
       filtered_df = filtered_df[
           filtered_df["CAMPAIGN NAME"]
@@ -304,7 +299,7 @@ if menu == "📋 Daftar Campaign & Banner":
                 on_change=update_status_inline,
                 label_visibility="collapsed",
             )
-            
+
             catatan_txt = (
                 str(row["CATATAN"])
                 if pd.notna(row["CATATAN"]) and row["CATATAN"] != ""
@@ -335,7 +330,6 @@ if menu == "📋 Daftar Campaign & Banner":
                 st.success("Data berhasil dihapus!")
                 st.rerun()
 
-      # FORM EDIT MUNCUL JIKA TOMBOL EDIT DIKLIK
       if "edit_index" in st.session_state:
         e_idx = st.session_state["edit_index"]
         if e_idx in st.session_state["content_db"].index:
@@ -455,7 +449,7 @@ elif menu == "➕ Tambah Campaign Baru":
       link_drive = st.text_input("Link Drive")
       status = st.selectbox(
           "Status", ["Draft", "Pending", "Done"], index=0
-      )  # Default Draft
+      )
 
     uploaded_file = st.file_uploader(
         "Upload Contoh / Referensi Banner (Gambar)",
@@ -508,15 +502,22 @@ elif menu == "➕ Tambah Campaign Baru":
 # MENU 3: APPROVAL / STATUS CHECKER
 # ==========================================
 elif menu == "👔 Approval / Status Checker":
-  st.subheader(
-      f"👔 Ringkasan Status Campaign ({selected_marketplace}) & WhatsApp"
-      " Reminder"
-  )
+  col_title_app, col_btn_app = st.columns([4, 1])
+  with col_title_app:
+    st.subheader(
+        f"👔 Panel Approval Campaign ({selected_marketplace}) & WhatsApp"
+        " Reminder"
+    )
+  with col_btn_app:
+    if st.button("🔄 Refresh Data", key="ref_menu3"):
+      st.session_state["content_db"] = load_database(selected_marketplace)
+      st.success("Data berhasil diperbarui!")
+      st.rerun()
 
   df = st.session_state["content_db"]
 
   if df.empty:
-    st.info("Belum ada data.")
+    st.info("Belum ada data campaign.")
   else:
     total_data = len(df)
     total_done = len(df[df["STATUS"].str.lower() == "done"])
@@ -531,47 +532,116 @@ elif menu == "👔 Approval / Status Checker":
 
     st.markdown("---")
     st.markdown(
-        f"### 📲 Kirim Pengingat WhatsApp Tim ({selected_marketplace})"
+        f"### 📋 Daftar Approval & Aksi Cepat ({selected_marketplace})"
     )
 
-    pilihan_camp = st.selectbox(
-        "Pilih Campaign:", df["CAMPAIGN NAME"].tolist()
-    )
-    selected_row = df[df["CAMPAIGN NAME"] == pilihan_camp].iloc[0]
+    for index, row in df.iterrows():
+      uk_str = (
+          ", ".join(row["UKURAN BANNER"])
+          if isinstance(row["UKURAN BANNER"], list)
+          else str(row["UKURAN BANNER"])
+      )
 
-    daftar_tim = {
-        "Pak Reza": "6281321686233",
-        "Bu Emma": "628175731188",
-        "Pak Gilang": "6281809830066",
-        "Surya": "6281945678904",
-    }
+      with st.container(border=True):
+        col_info1, col_info2, col_info3, col_info4, col_aksi = st.columns(
+            [1.5, 1.2, 1, 1, 1.3]
+        )
 
-    pilihan_admin = st.selectbox("Pilih Kontak Tujuan:", list(daftar_tim.keys()))
-    nomor_tujuan = st.text_input("Nomor WhatsApp:", value=daftar_tim[pilihan_admin])
+        with col_info1:
+          st.markdown(f"📌 **No. {row['NO']} - {row['TANGGAL BUAT']}**")
+          c_name_short = (
+              str(row["CAMPAIGN NAME"])[:40] + "..."
+              if len(str(row["CAMPAIGN NAME"])) > 40
+              else str(row["CAMPAIGN NAME"])
+          )
+          with st.popover("📄 Detail Campaign"):
+            st.text_area(
+                "Campaign Name",
+                value=str(row["CAMPAIGN NAME"]),
+                height=130,
+                disabled=True,
+                label_visibility="collapsed",
+            )
+          st.write(f"🏷️ {c_name_short}")
 
-    uk_str_wa = (
-        ", ".join(selected_row["UKURAN BANNER"])
-        if isinstance(selected_row["UKURAN BANNER"], list)
-        else str(selected_row["UKURAN BANNER"])
-    )
-    pesan_wa = (
-        f"Halo *{pilihan_admin}*, mohon bantuannya untuk cek campaign *{selected_marketplace}* berikut:\n\n"
-        f"📌 *Campaign:* {selected_row['CAMPAIGN NAME']}\n"
-        f"📐 *Ukuran:* {uk_str_wa}\n"
-        f"📊 *Status:* {selected_row['STATUS']}\n"
-        f"🔗 *Link Drive:* {selected_row['LINK DRIVE']}\n\n"
-        f"Terima kasih!"
-    )
+        with col_info2:
+          st.markdown("📐 **Ukuran & Status:**")
+          st.write(f"Ukuran: {uk_str if uk_str else '-'}")
+          st.write(f"Status: **{row['STATUS']}**")
 
-    encoded_pesan = urllib.parse.quote(pesan_wa)
-    whatsapp_url = (
-        f"https://api.whatsapp.com/send?phone={nomor_tujuan}&text={encoded_pesan}"
-    )
+        with col_info3:
+          st.markdown("🔗 **Link Drive:**")
+          drive_val = str(row["LINK DRIVE"])
+          if drive_val.startswith("http"):
+            st.markdown(f"[Buka Link]({drive_val})")
+          else:
+            st.write("-")
 
-    st.markdown(
-        f'<a href="{whatsapp_url}" target="_blank"><button'
-        ' style="background-color:#25D366; color:white; padding:10px'
-        ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
-        " Buka WhatsApp & Kirim Pesan</button></a>",
-        unsafe_allow_html=True,
-    )
+        with col_info4:
+          st.markdown("📝 **Catatan:**")
+          catatan_txt = (
+              str(row["CATATAN"])
+              if pd.notna(row["CATATAN"]) and row["CATATAN"] != ""
+              else "-"
+          )
+          if catatan_txt != "-":
+            with st.popover("📄 Catatan"):
+              st.write(catatan_txt)
+          else:
+            st.write("-")
+
+        with col_aksi:
+          st.markdown("⚡ **Tombol Approval:**")
+          btn_app, btn_rej = st.columns(2)
+          with btn_app:
+            if st.button("✅", key=f"app_btn_{index}", help="Approve (Done)"):
+              df.loc[index, "STATUS"] = "Done"
+              save_database(df, selected_marketplace)
+              st.success("Disetujui (Done)!")
+              st.rerun()
+          with btn_rej:
+            if st.button("❌", key=f"rej_btn_{index}", help="Not Approve (Pending)"):
+              df.loc[index, "STATUS"] = "Pending"
+              save_database(df, selected_marketplace)
+              st.warning("Diberi status Pending / Revisi.")
+              st.rerun()
+
+        # Fitur Reminder WA di setiap card approval
+        with st.expander(f"📲 Kirim Reminder WhatsApp untuk No. {row['NO']}"):
+          daftar_tim = {
+              "Pak Reza": "6281321686233",
+              "Bu Emma": "628175731188",
+              "Pak Gilang": "6281809830066",
+              "Surya": "6281945678904",
+          }
+          pilihan_admin = st.selectbox(
+              "Pilih Kontak Tujuan:",
+              list(daftar_tim.keys()),
+              key=f"sel_tim_{index}",
+          )
+          nomor_tujuan = st.text_input(
+              "Nomor WhatsApp:",
+              value=daftar_tim[pilihan_admin],
+              key=f"no_wa_{index}",
+          )
+
+          pesan_wa = (
+              f"Halo *{pilihan_admin}*, mohon bantuannya untuk cek & approve campaign *{selected_marketplace}* berikut:\n\n"
+              f"📌 *No:* {row['NO']}\n"
+              f"🏷️ *Campaign:* {row['CAMPAIGN NAME']}\n"
+              f"📐 *Ukuran:* {uk_str}\n"
+              f"📊 *Status Saat Ini:* {row['STATUS']}\n"
+              f"🔗 *Link Drive:* {row['LINK DRIVE']}\n\n"
+              f"Terima kasih!"
+          )
+
+          encoded_pesan = urllib.parse.quote(pesan_wa)
+          whatsapp_url = f"https://api.whatsapp.com/send?phone={nomor_tujuan}&text={encoded_pesan}"
+
+          st.markdown(
+              f'<a href="{whatsapp_url}" target="_blank"><button'
+              ' style="background-color:#25D366; color:white; padding:8px'
+              ' 16px; border:none; border-radius:5px; cursor:pointer;'
+              ' font-size:14px;">📲 Kirim WhatsApp Reminder</button></a>',
+              unsafe_allow_html=True,
+          )

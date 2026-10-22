@@ -208,8 +208,8 @@ if menu == "📋 Daftar Campaign & Banner":
       )
     else:
       st.markdown(
-          "💡 **Panduan:** Gunakan tombol **✏️ Edit** atau **🗑️ Hapus** di"
-          " ujung kanan setiap baris."
+          "💡 **Panduan:** Pilih status langsung pada dropdown di setiap baris"
+          " untuk mengubahnya, atau gunakan tombol **✏️ Edit** / **🗑️ Hapus**."
       )
 
       for index, row in filtered_df.iterrows():
@@ -221,7 +221,7 @@ if menu == "📋 Daftar Campaign & Banner":
 
         with st.container(border=True):
           c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
-              [0.8, 1.2, 1.4, 1.1, 1, 1, 1, 0.7]
+              [0.7, 1.1, 1.4, 1.1, 1, 1, 1.1, 0.7]
           )
 
           with c1:
@@ -285,7 +285,26 @@ if menu == "📋 Daftar Campaign & Banner":
 
           with c7:
             st.markdown("📊 **Status:**")
-            st.write(f"**{row['STATUS']}**")
+            status_options = ["Draft", "Pending", "Done"]
+            current_status = (
+                row["STATUS"] if row["STATUS"] in status_options else "Draft"
+            )
+            widget_key = f"status_inline_{selected_marketplace}_{row['NO']}_{index}"
+
+            def update_status_inline(r_idx=index, w_key=widget_key):
+              new_val = st.session_state[w_key]
+              st.session_state["content_db"].loc[r_idx, "STATUS"] = new_val
+              save_database(st.session_state["content_db"], selected_marketplace)
+
+            st.selectbox(
+                "Status",
+                status_options,
+                index=status_options.index(current_status),
+                key=widget_key,
+                on_change=update_status_inline,
+                label_visibility="collapsed",
+            )
+            
             catatan_txt = (
                 str(row["CATATAN"])
                 if pd.notna(row["CATATAN"]) and row["CATATAN"] != ""

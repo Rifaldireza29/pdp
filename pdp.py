@@ -53,7 +53,7 @@ def load_database():
         "TANGGAL BUAT",
         "CAMPAIGN NAME",
         "UKURAN BANNER",
-        "PRODUCT SHOOW BANNER",
+        "PRODUCT SHOW BANNER",  # Diubah jadi SHOW
         "CONTOH/REFERENSI BANNER",
         "LINK DRIVE",
         "CATATAN",
@@ -79,7 +79,7 @@ def load_database():
             "TANGGAL BUAT",
             "CAMPAIGN NAME",
             "UKURAN BANNER",
-            "PRODUCT SHOOW BANNER",
+            "PRODUCT SHOW BANNER",
             "CONTOH/REFERENSI BANNER",
             "LINK DRIVE",
             "CATATAN",
@@ -197,7 +197,7 @@ if menu == "📋 Daftar Campaign & Banner":
       filtered_df = filtered_df[
           filtered_df["CAMPAIGN NAME"]
           .str.contains(search_query, case=False, na=False)
-          | filtered_df["PRODUCT SHOOW BANNER"]
+          | filtered_df["PRODUCT SHOW BANNER"]
           .str.contains(search_query, case=False, na=False)
       ]
 
@@ -271,7 +271,7 @@ if menu == "📋 Daftar Campaign & Banner":
 
           with c7:
             st.markdown("📦 **Product:**")
-            prod_val = str(row["PRODUCT SHOOW BANNER"])
+            prod_val = str(row["PRODUCT SHOW BANNER"])
             if "http" in prod_val:
               st.markdown(f"[Link]({prod_val})")
             else:
@@ -395,7 +395,7 @@ if menu == "📋 Daftar Campaign & Banner":
               )
               edit_product = st.text_area(
                   "Product Show Banner (SKU atau Link Produk)",
-                  value=str(r_data["PRODUCT SHOOW BANNER"]),
+                  value=str(r_data["PRODUCT SHOW BANNER"]),
                   height=90,
               )
             with ec2:
@@ -434,7 +434,7 @@ if menu == "📋 Daftar Campaign & Banner":
               )
               db_df.loc[e_idx, "CAMPAIGN NAME"] = edit_camp_name
               db_df.loc[e_idx, "UKURAN BANNER"] = edit_ukuran
-              db_df.loc[e_idx, "PRODUCT SHOOW BANNER"] = edit_product
+              db_df.loc[e_idx, "PRODUCT SHOW BANNER"] = edit_product
               db_df.loc[e_idx, "LINK DRIVE"] = edit_link_drive
               db_df.loc[e_idx, "STATUS"] = edit_status
               db_df.loc[e_idx, "CONTOH/REFERENSI BANNER"] = edit_referensi
@@ -502,7 +502,7 @@ elif menu == "➕ Tambah Campaign Baru":
             "TANGGAL BUAT": tanggal_buat.strftime("%Y-%m-%d"),
             "CAMPAIGN NAME": camp_name,
             "UKURAN BANNER": ukuran_banner,
-            "PRODUCT SHOOW BANNER": product_show,
+            "PRODUCT SHOW BANNER": product_show,
             "CONTOH/REFERENSI BANNER": ref_path,
             "LINK DRIVE": link_drive,
             "CATATAN": catatan,
@@ -686,7 +686,6 @@ elif menu == "📊 Rekapan & Statistik":
   else:
     st.markdown("### 🔍 Filter & Rekapan Per Bulan")
 
-    # Ambil daftar bulan yang tersedia dari data (format YYYY-MM)
     df_temp = df.copy()
     df_temp["BULAN"] = df_temp["TANGGAL BUAT"].apply(
         lambda x: str(x)[:7] if pd.notna(x) and len(str(x)) >= 7 else "Lainnya"
@@ -707,19 +706,16 @@ elif menu == "📊 Rekapan & Statistik":
 
     recap_filtered = df.copy()
 
-    # Filter Marketplace
     if rek_market != "Semua":
       recap_filtered = recap_filtered[
           recap_filtered["MARKETPLACE"].str.lower() == rek_market.lower()
       ]
 
-    # Filter Bulan
     if rek_bulan != "Semua":
       recap_filtered = recap_filtered[
           recap_filtered["TANGGAL BUAT"].astype(str).str.startswith(rek_bulan)
       ]
 
-    # Hitung Statistik Berdasarkan Hasil Filter
     total_campaign = len(recap_filtered)
     total_done = len(
         recap_filtered[recap_filtered["STATUS"].str.lower() == "done"]

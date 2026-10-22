@@ -103,9 +103,13 @@ def save_database(df):
     sheet.clear()
     header = list(df_to_save.columns)
     rows = df_to_save.values.tolist()
-    sheet.update([header] + rows)
+    
+    # Gunakan range update atau update langsung ke cell A1
+    sheet.update(range_name="A1", values=[header] + rows)
   except Exception as e:
-    st.error(f"Gagal menyimpan ke Google Sheets: {e}")
+    # Abaikan jika hanya menampilkan respons 200 sukses
+    if "<Response [200]>" not in str(e):
+      st.error(f"Gagal menyimpan ke Google Sheets: {e}")
 
 
 st.title("🛍️ PDP & Campaign Content Planner")

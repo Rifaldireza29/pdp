@@ -25,11 +25,10 @@ def get_gspread_client():
   return client
 
 
-# Fungsi untuk memuat seluruh data dari satu sheet utama (misal: sheet pertama)
+# Fungsi untuk memuat seluruh data dari satu sheet utama
 def load_database():
   try:
     client = get_gspread_client()
-    # Mengambil dari sheet pertama (bisa dinamai "Master Campaign" atau "Database")
     sheet = client.open("Content Database Sosmed").sheet1
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
@@ -105,7 +104,7 @@ st.markdown(
 if "content_db" not in st.session_state:
   st.session_state["content_db"] = load_database()
 
-# Sidebar Navigasi Menu yang bersih tanpa pilihan marketplace
+# Sidebar Navigasi Menu dengan tambahan Rekapan
 st.sidebar.title("📌 Navigasi Menu")
 menu = st.sidebar.radio(
     "Pilih Menu:",
@@ -113,6 +112,7 @@ menu = st.sidebar.radio(
         "📋 Daftar Campaign & Banner",
         "➕ Tambah Campaign Baru",
         "👔 Approval / Status Checker",
+        "📊 Rekapan & Statistik",
     ],
 )
 
@@ -434,7 +434,6 @@ elif menu == "➕ Tambah Campaign Baru":
   st.subheader("➕ Tambah Baris Campaign Baru ke Laporan Utama")
 
   with st.form("form_tambah_campaign", clear_on_submit=True):
-    # Pilihan marketplace langsung di dalam form
     marketplace_pilihan = st.selectbox(
         "Pilih Marketplace / Platform", ["Shopee", "Tokopedia"]
     )
@@ -520,18 +519,6 @@ elif menu == "👔 Approval / Status Checker":
   if df.empty:
     st.info("Belum ada data campaign.")
   else:
-    total_data = len(df)
-    total_done = len(df[df["STATUS"].str.lower() == "done"])
-    total_pending = len(df[df["STATUS"].str.lower() == "pending"])
-    total_draft = len(df[df["STATUS"].str.lower() == "draft"])
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Campaign", total_data)
-    c2.metric("Status Done", total_done)
-    c3.metric("Status Pending", total_pending)
-    c4.metric("Status Draft", total_draft)
-
-    st.markdown("---")
     st.markdown("### 📋 Daftar Approval & Aksi Cepat (Semua Marketplace)")
 
     for index, row in df.iterrows():
@@ -608,7 +595,6 @@ elif menu == "👔 Approval / Status Checker":
               st.warning("Diberi status Pending / Revisi.")
               st.rerun()
 
-        # Fitur Reminder WA di setiap card approval
         with st.expander(
             f"📲 Kirim Reminder WhatsApp untuk No. {row['NO']} ({row['MARKETPLACE']})"
         ):
@@ -649,3 +635,62 @@ elif menu == "👔 Approval / Status Checker":
               ' font-size:14px;">📲 Kirim WhatsApp Reminder</button></a>',
               unsafe_allow_html=True,
           )
+
+# ==========================================
+# MENU 4: REKAPAN & STATISTIK
+# ==========================================
+elif menu == "📊 Rekapan & Statistik":
+  col_title_rek, col_btn_rek = st.columns([4, 1])
+  with col_title_rek:
+    st.subheader("📊 Rekapan & Statistik Keseluruhan Campaign")
+  with col_btn_rek:
+    if st.button("🔄 Refresh Data", key="ref_menu4"):
+      st.session_state["content_db"] = load_database()
+      st.success("Data berhasil diperbarui!")
+      st.rerun()
+
+  df = st.session_state["content_db"]
+
+  if df.empty:
+    st.info("Belum ada data campaign untuk direkap.")
+  else:
+    # Hitung Statistik Umum
+    total_campaign = len(df)
+    total_done = len(df[df["STATUS"].str.lower() == "done"])
+    total_pending = len(df[df["STATUS"].str.lower() == "pending"])
+    total_draft = len(df[df["STATUS"].str.lower() == "draft"])
+
+    total_shopee = len(df[df["MARKETPLACE"].str.lower() == "shopee"])
+    total_tokopedia = len(df[df["MARKETPLACE"].str.lower() == "tokopedia"])
+
+    st.markdown("### 📈 Ringkasan Metrik Utama")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Total Campaign", total_campaign)
+    m2.metric("Status Done", total_done)
+    m3.metric("Status Pending", total_pending)
+    m4.metric("Status Draft", total_draft)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    m5, m6 = st.columns(2)
+    m5.metric("🛒 Total Campaign Shopee", total_shopee)
+    m6.metric("🛒 Total Campaign Tokopedia", total_tokopedia)
+
+    st.markdown("---")
+    st.markdown("### 📜 Daftar Riwayat Semua Campaign yang Pernah Dibuat")
+
+    # Tabel ringkasan bersih
+    recap_table = df[
+        [
+            "NO",
+            "MARKETPLACE",
+            "TANGGAL BUAT",
+            "CAMPAIGN NAME",
+            "STATUS",
+            "LINK DRIVE",
+        ]
+    ].copy()
+    recap_table["CAMPAIGN NAME"] = recap_table["CAMPAIGN NAME"].apply(
+        lambda x: str(x).replace("\n", " ")
+    )
+
+    st.dataframe(recap_table, use_container_width=True, hide_index=True)

@@ -221,7 +221,6 @@ if menu == "📋 Daftar Campaign & Banner":
         )
 
         with st.container(border=True):
-          # Proporsi kolom diatur ulang agar gambar dan tombol aksi muat dengan pas
           c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
               [0.4, 0.8, 0.9, 1.2, 1.0, 0.9, 0.9, 0.8, 1.1, 0.9]
           )
@@ -685,13 +684,59 @@ elif menu == "📊 Rekapan & Statistik":
   if df.empty:
     st.info("Belum ada data campaign untuk direkap.")
   else:
-    total_campaign = len(df)
-    total_done = len(df[df["STATUS"].str.lower() == "done"])
-    total_pending = len(df[df["STATUS"].str.lower() == "pending"])
-    total_draft = len(df[df["STATUS"].str.lower() == "draft"])
+    st.markdown("### 🔍 Filter & Rekapan Per Bulan")
 
-    total_shopee = len(df[df["MARKETPLACE"].str.lower() == "shopee"])
-    total_tokopedia = len(df[df["MARKETPLACE"].str.lower() == "tokopedia"])
+    # Ambil daftar bulan yang tersedia dari data (format YYYY-MM)
+    df_temp = df.copy()
+    df_temp["BULAN"] = df_temp["TANGGAL BUAT"].apply(
+        lambda x: str(x)[:7] if pd.notna(x) and len(str(x)) >= 7 else "Lainnya"
+    )
+    daftar_bulan = ["Semua"] + sorted(
+        df_temp["BULAN"].unique().tolist(), reverse=True
+    )
+
+    col_rf1, col_rf2 = st.columns(2)
+    with col_rf1:
+      rek_market = st.selectbox(
+          "Filter Marketplace", ["Semua", "Shopee", "Tokopedia"], key="rek_market"
+      )
+    with col_rf2:
+      rek_bulan = st.selectbox(
+          "📅 Pilih Bulan (Format: YYYY-MM)", daftar_bulan, key="rek_bulan"
+      )
+
+    recap_filtered = df.copy()
+
+    # Filter Marketplace
+    if rek_market != "Semua":
+      recap_filtered = recap_filtered[
+          recap_filtered["MARKETPLACE"].str.lower() == rek_market.lower()
+      ]
+
+    # Filter Bulan
+    if rek_bulan != "Semua":
+      recap_filtered = recap_filtered[
+          recap_filtered["TANGGAL BUAT"].astype(str).str.startswith(rek_bulan)
+      ]
+
+    # Hitung Statistik Berdasarkan Hasil Filter
+    total_campaign = len(recap_filtered)
+    total_done = len(
+        recap_filtered[recap_filtered["STATUS"].str.lower() == "done"]
+    )
+    total_pending = len(
+        recap_filtered[recap_filtered["STATUS"].str.lower() == "pending"]
+    )
+    total_draft = len(
+        recap_filtered[recap_filtered["STATUS"].str.lower() == "draft"]
+    )
+
+    total_shopee = len(
+        recap_filtered[recap_filtered["MARKETPLACE"].str.lower() == "shopee"]
+    )
+    total_tokopedia = len(
+        recap_filtered[recap_filtered["MARKETPLACE"].str.lower() == "tokopedia"]
+    )
 
     st.markdown("### 📈 Ringkasan Metrik Utama")
     m1, m2, m3, m4 = st.columns(4)
@@ -706,9 +751,9 @@ elif menu == "📊 Rekapan & Statistik":
     m6.metric("🛒 Total Campaign Tokopedia", total_tokopedia)
 
     st.markdown("---")
-    st.markdown("### 📜 Daftar Riwayat Semua Campaign yang Pernah Dibuat")
+    st.markdown("### 📜 Daftar Riwayat Semua Campaign")
 
-    recap_table = df[
+    recap_table = recap_filtered[
         [
             "NO",
             "MARKETPLACE",

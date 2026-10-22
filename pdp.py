@@ -35,6 +35,7 @@ def load_database(worksheet_name):
 
     expected_columns = [
         "NO",
+        "TANGGAL BUAT",
         "CAMPAIGN NAME",
         "UKURAN BANNER",
         "PRODUCT SHOOW BANNER",
@@ -50,7 +51,7 @@ def load_database(worksheet_name):
       for col in expected_columns:
         if col not in df.columns:
           df[col] = ""
-      # Handle Tipe List jika disimpan sebagai string koma
+      # Handle Tipe List jika ukuran banner disimpan sebagai string koma
       if "UKURAN BANNER" in df.columns:
         df["UKURAN BANNER"] = df["UKURAN BANNER"].apply(
             lambda x: x.split(", ") if isinstance(x, str) and x else []
@@ -60,6 +61,7 @@ def load_database(worksheet_name):
     return pd.DataFrame(
         columns=[
             "NO",
+            "TANGGAL BUAT",
             "CAMPAIGN NAME",
             "UKURAN BANNER",
             "PRODUCT SHOOW BANNER",
@@ -93,8 +95,8 @@ def save_database(df, worksheet_name):
 
 st.title("🛍️ PDP & Campaign Content Planner")
 st.markdown(
-    "Kelola campaign banner, ukuran banner, daftar SKU/link produk, referensi"
-    " gambar, link Drive, dan status."
+    "Kelola campaign banner, tanggal pembuatan, ukuran banner, daftar SKU/link"
+    " produk, referensi gambar, link Drive, dan status."
 )
 
 # PILIHAN MARKETPLACE / SHEET DI SIDEBAR
@@ -158,22 +160,38 @@ if menu == "📋 Daftar Campaign & Banner":
         " tambah melalui menu **Tambah Campaign Baru**."
     )
   else:
-    col_f1, col_f2 = st.columns(2)
+    # BAGIAN FILTER-FILTER LENGKAP
+    st.markdown("### 🔍 Filter & Pencarian Data")
+    col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
       filter_status = st.selectbox(
           "Filter Status", ["Semua", "Draft", "Pending", "Done"]
       )
     with col_f2:
+      filter_tanggal = st.date_input(
+          "📅 Filter Tanggal Pembuatan", value=None, key="filter_tgl_buat"
+      )
+    with col_f3:
       search_query = st.text_input(
           "🔍 Cari Campaign Name / SKU", placeholder="Ketik kata kunci..."
       )
 
     filtered_df = df.copy()
+
+    # Terapkan Filter Status
     if filter_status != "Semua":
       filtered_df = filtered_df[
           filtered_df["STATUS"].str.lower() == filter_status.lower()
       ]
 
+    # Terapkan Filter Tanggal Buat
+    if filter_tanggal:
+      tgl_str = filter_tanggal.strftime("%Y-%m-%d")
+      filtered_df = filtered_df[
+          filtered_df["TANGGAL BUAT"].astype(str).str.startswith(tgl_str)
+      ]
+
+    # Terapkan Search Query
     if search_query:
       filtered_df = filtered_df[
           filtered_df["CAMPAIGN NAME"]
@@ -182,8 +200,12 @@ if menu == "📋 Daftar Campaign & Banner":
           .str.contains(search_query, case=False, na=False)
       ]
 
+    st.markdown("---")
+
     if filtered_df.empty:
-      st.warning("Tidak ada data yang cocok dengan filter / pencarian.")
+      st.warning(
+          "Tidak ada data campaign yang cocok dengan filter / pencarian tersebut."
+      )
     else:
       st.markdown(
           "💡 **Panduan:** Gunakan tombol **✏️ Edit** atau **🗑️ Hapus** di"
@@ -198,15 +220,26 @@ if menu == "📋 Daftar Campaign & Banner":
         )
 
         with st.container(border=True):
-          c1, c2, c3, c4, c5, c6, c7 = st.columns(
-              [1.4, 1.1, 1, 1, 1, 1, 0.7]
+          c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+              [0.8, 1.2, 1.4, 1.1, 1, 1, 1, 0.7]
           )
 
           with c1:
             st.markdown(f"📌 **No. {row['NO']}**")
+
+          with c2:
+            st.markdown("📅 **Dibuat:**")
+            st.write(
+                str(row["TANGGAL BUAT"])
+                if pd.notna(row["TANGGAL BUAT"])
+                else "-"
+            )
+
+          with c3:
+            st.markdown("🏷️ **Campaign:**")
             c_name_short = (
-                str(row["CAMPAIGN NAME"])[:40] + "..."
-                if len(str(row["CAMPAIGN NAME"])) > 40
+                str(row["CAMPAIGN NAME"])[:35] + "..."
+                if len(str(row["CAMPAIGN NAME"])) > 35
                 else str(row["CAMPAIGN NAME"])
             )
             with st.popover("📄 Detail Campaign"):
@@ -217,20 +250,20 @@ if menu == "📋 Daftar Campaign & Banner":
                   disabled=True,
                   label_visibility="collapsed",
               )
-            st.write(f"🏷️ {c_name_short}")
+            st.write(c_name_short)
 
-          with c2:
+          with c4:
             st.markdown("📐 **Ukuran:**")
             st.write(uk_str if uk_str else "-")
 
-          with c3:
+          with c5:
             st.markdown("📦 **Product Show:**")
             prod_val = str(row["PRODUCT SHOOW BANNER"])
             if "http" in prod_val:
               st.markdown(f"[Buka Link Produk]({prod_val})")
             else:
               sku_short = (
-                  prod_val[:25] + "..." if len(prod_val) > 25 else prod_val
+                  prod_val[:20] + "..." if len(prod_val) > 20 else prod_val
               )
               with st.popover("📦 Lihat SKU"):
                 st.text_area(
@@ -242,25 +275,15 @@ if menu == "📋 Daftar Campaign & Banner":
                 )
               st.write(sku_short if sku_short else "-")
 
-          with c4:
-            st.markdown("🖼️ **Referensi:**")
-            img_path = str(row["CONTOH/REFERENSI BANNER"])
-            if img_path and os.path.exists(img_path):
-              st.image(img_path, width=80)
-            elif img_path:
-              st.write(img_path)
-            else:
-              st.write("-")
-
-          with c5:
-            st.markdown("🔗 **Link Drive:**")
+          with c6:
+            st.markdown("🔗 **Drive:**")
             drive_val = str(row["LINK DRIVE"])
             if drive_val.startswith("http"):
               st.markdown(f"[Buka Link]({drive_val})")
             else:
               st.write(drive_val if drive_val else "-")
 
-          with c6:
+          with c7:
             st.markdown("📊 **Status:**")
             st.write(f"**{row['STATUS']}**")
             catatan_txt = (
@@ -272,7 +295,7 @@ if menu == "📋 Daftar Campaign & Banner":
               with st.popover("📝 Catatan"):
                 st.write(catatan_txt)
 
-          with c7:
+          with c8:
             st.markdown("⚡ **Aksi:**")
             col_e, col_d = st.columns(2)
             with col_e:
@@ -302,6 +325,15 @@ if menu == "📋 Daftar Campaign & Banner":
           st.subheader(f"✏️ Edit Data Baris No. {r_data['NO']}")
 
           with st.form("form_edit_campaign"):
+            edit_tgl_buat = st.date_input(
+                "Tanggal Pembuatan",
+                value=(
+                    datetime.strptime(str(r_data["TANGGAL BUAT"]), "%Y-%m-%d").date()
+                    if pd.notna(r_data["TANGGAL BUAT"])
+                    and str(r_data["TANGGAL BUAT"]) != ""
+                    else date.today()
+                ),
+            )
             edit_camp_name = st.text_area(
                 "Campaign Name (Judul, Periode, Promo, CTA)",
                 value=str(r_data["CAMPAIGN NAME"]),
@@ -358,6 +390,9 @@ if menu == "📋 Daftar Campaign & Banner":
 
             if btn_update:
               db_df = st.session_state["content_db"]
+              db_df.loc[e_idx, "TANGGAL BUAT"] = edit_tgl_buat.strftime(
+                  "%Y-%m-%d"
+              )
               db_df.loc[e_idx, "CAMPAIGN NAME"] = edit_camp_name
               db_df.loc[e_idx, "UKURAN BANNER"] = edit_ukuran
               db_df.loc[e_idx, "PRODUCT SHOOW BANNER"] = edit_product
@@ -384,6 +419,7 @@ elif menu == "➕ Tambah Campaign Baru":
   )
 
   with st.form("form_tambah_campaign", clear_on_submit=True):
+    tanggal_buat = st.date_input("Tanggal Pembuatan", value=date.today())
     camp_name = st.text_area(
         "Campaign Name (Judul, Periode, Promo, Hadiah, CTA)"
     )
@@ -424,6 +460,7 @@ elif menu == "➕ Tambah Campaign Baru":
 
         new_data = {
             "NO": new_no,
+            "TANGGAL BUAT": tanggal_buat.strftime("%Y-%m-%d"),
             "CAMPAIGN NAME": camp_name,
             "UKURAN BANNER": ukuran_banner,
             "PRODUCT SHOOW BANNER": product_show,

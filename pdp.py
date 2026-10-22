@@ -25,11 +25,11 @@ def get_gspread_client():
   return client
 
 
-# Fungsi untuk memuat data dari Google Sheets ke Pandas DataFrame
-def load_database():
+# Fungsi untuk memuat data dari Google Sheets berdasarkan tab yang dipilih
+def load_database(worksheet_name):
   try:
     client = get_gspread_client()
-    sheet = client.open("Content Database Sosmed").worksheet("Shopee")
+    sheet = client.open("Content Database Sosmed").worksheet(worksheet_name)
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
 
@@ -71,14 +71,13 @@ def load_database():
     )
 
 
-# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets
-def save_database(df):
+# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets pada tab yang aktif
+def save_database(df, worksheet_name):
   try:
     client = get_gspread_client()
-    sheet = client.open("Content Database Sosmed").worksheet("Shopee")
+    sheet = client.open("Content Database Sosmed").worksheet(worksheet_name)
 
     df_to_save = df.copy()
-    # Ubah list ukuran banner kembali jadi string dipisah koma agar rapi di GSheet
     if "UKURAN BANNER" in df_to_save.columns:
       df_to_save["UKURAN BANNER"] = df_to_save["UKURAN BANNER"].apply(
           lambda x: ", ".join(x) if isinstance(x, list) else str(x)
@@ -92,15 +91,33 @@ def save_database(df):
     st.error(f"Gagal menyimpan ke Google Sheets: {e}")
 
 
-# Inisialisasi Session State dengan Google Sheets
-if "content_db" not in st.session_state:
-  st.session_state["content_db"] = load_database()
-
 st.title("🛍️ PDP & Campaign Content Planner")
 st.markdown(
     "Kelola campaign banner, ukuran banner, daftar SKU/link produk, referensi"
     " gambar, link Drive, dan status."
 )
+
+# PILIHAN MARKETPLACE / SHEET DI SIDEBAR
+st.sidebar.title("🛒 Pilih Platform / Marketplace")
+selected_marketplace = st.sidebar.radio(
+    "Pilih Target Marketplace:", ["Shopee", "Tokopedia"]
+)
+
+# Simpan state marketplace aktif agar saat pindah menu tidak reset
+if (
+    "active_marketplace" not in st.session_state
+    or st.session_state["active_marketplace"] != selected_marketplace
+):
+  st.session_state["active_marketplace"] = selected_marketplace
+  st.session_state["content_db"] = load_database(selected_marketplace)
+  if "edit_index" in st.session_state:
+    del st.session_state["edit_index"]
+
+# Inisialisasi Session State jika belum ada
+if "content_db" not in st.session_state:
+  st.session_state["content_db"] = load_database(selected_marketplace)
+
+st.sidebar.markdown(f"📌 **Tab Aktif GSheet:** `{selected_marketplace}`")
 
 # Sidebar untuk Navigasi Menu
 st.sidebar.title("📌 Navigasi Menu")
@@ -124,10 +141,12 @@ if not os.path.exists(UPLOAD_DIR):
 if menu == "📋 Daftar Campaign & Banner":
   col_title, col_btn = st.columns([4, 1])
   with col_title:
-    st.subheader("📋 Tabel Manajemen Campaign & Banner PDP")
+    st.subheader(
+        f"📋 Tabel Manajemen Campaign & Banner ({selected_marketplace})"
+    )
   with col_btn:
     if st.button("🔄 Refresh Data", key="ref_menu1"):
-      st.session_state["content_db"] = load_database()
+      st.session_state["content_db"] = load_database(selected_marketplace)
       st.success("Data berhasil diperbarui dari Google Sheets!")
       st.rerun()
 
@@ -135,8 +154,8 @@ if menu == "📋 Daftar Campaign & Banner":
 
   if df.empty:
     st.info(
-        "Belum ada data campaign. Silakan tambah melalui menu **Tambah"
-        " Campaign Baru**."
+        f"Belum ada data campaign untuk {selected_marketplace}. Silakan"
+        " tambah melalui menu **Tambah Campaign Baru**."
     )
   else:
     col_f1, col_f2 = st.columns(2)
@@ -268,7 +287,9 @@ if menu == "📋 Daftar Campaign & Banner":
                 st.session_state["content_db"]["NO"] = range(
                     1, len(st.session_state["content_db"]) + 1
                 )
-                save_database(st.session_state["content_db"])
+                save_database(
+                    st.session_state["content_db"], selected_marketplace
+                )
                 st.success("Data berhasil dihapus!")
                 st.rerun()
 
@@ -345,7 +366,7 @@ if menu == "📋 Daftar Campaign & Banner":
               db_df.loc[e_idx, "CONTOH/REFERENSI BANNER"] = edit_referensi
               db_df.loc[e_idx, "CATATAN"] = edit_catatan
 
-              save_database(db_df)
+              save_database(db_df, selected_marketplace)
               del st.session_state["edit_index"]
               st.success("Perubahan berhasil disimpan ke Google Sheets!")
               st.rerun()
@@ -358,7 +379,9 @@ if menu == "📋 Daftar Campaign & Banner":
 # MENU 2: TAMBAH CAMPAIGN BARU
 # ==========================================
 elif menu == "➕ Tambah Campaign Baru":
-  st.subheader("➕ Tambah Baris Campaign Baru ke Google Sheets")
+  st.subheader(
+      f"➕ Tambah Baris Campaign Baru ke Google Sheets ({selected_marketplace})"
+  )
 
   with st.form("form_tambah_campaign", clear_on_submit=True):
     camp_name = st.text_area(
@@ -389,11 +412,10 @@ elif menu == "➕ Tambah Campaign Baru":
 
     if submit_button:
       if camp_name:
-        st.session_state["content_db"] = load_database()
+        st.session_state["content_db"] = load_database(selected_marketplace)
         current_len = len(st.session_state["content_db"])
         new_no = current_len + 1
 
-        # Simpan file gambar jika di-upload
         ref_path = ""
         if uploaded_file is not None:
           ref_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
@@ -418,8 +440,11 @@ elif menu == "➕ Tambah Campaign Baru":
             ],
             ignore_index=True,
         )
-        save_database(st.session_state["content_db"])
-        st.success("Berhasil! Campaign baru tersimpan ke Google Sheets.")
+        save_database(st.session_state["content_db"], selected_marketplace)
+        st.success(
+            f"Berhasil! Campaign baru tersimpan ke sheet '{selected_marketplace}'"
+            " di Google Sheets."
+        )
       else:
         st.warning("Mohon setidaknya isi kolom **Campaign Name**.")
 
@@ -427,7 +452,10 @@ elif menu == "➕ Tambah Campaign Baru":
 # MENU 3: APPROVAL / STATUS CHECKER
 # ==========================================
 elif menu == "👔 Approval / Status Checker":
-  st.subheader("👔 Ringkasan Status Campaign & WhatsApp Reminder")
+  st.subheader(
+      f"👔 Ringkasan Status Campaign ({selected_marketplace}) & WhatsApp"
+      " Reminder"
+  )
 
   df = st.session_state["content_db"]
 
@@ -446,7 +474,9 @@ elif menu == "👔 Approval / Status Checker":
     c4.metric("Status Draft", total_draft)
 
     st.markdown("---")
-    st.markdown("### 📲 Kirim Pengingat WhatsApp Tim")
+    st.markdown(
+        f"### 📲 Kirim Pengingat WhatsApp Tim ({selected_marketplace})"
+    )
 
     pilihan_camp = st.selectbox(
         "Pilih Campaign:", df["CAMPAIGN NAME"].tolist()
@@ -469,7 +499,7 @@ elif menu == "👔 Approval / Status Checker":
         else str(selected_row["UKURAN BANNER"])
     )
     pesan_wa = (
-        f"Halo *{pilihan_admin}*, mohon bantuannya untuk cek campaign berikut:\n\n"
+        f"Halo *{pilihan_admin}*, mohon bantuannya untuk cek campaign *{selected_marketplace}* berikut:\n\n"
         f"📌 *Campaign:* {selected_row['CAMPAIGN NAME']}\n"
         f"📐 *Ukuran:* {uk_str_wa}\n"
         f"📊 *Status:* {selected_row['STATUS']}\n"
@@ -486,6 +516,6 @@ elif menu == "👔 Approval / Status Checker":
         f'<a href="{whatsapp_url}" target="_blank"><button'
         ' style="background-color:#25D366; color:white; padding:10px'
         ' 20px; border:none; border-radius:5px; cursor:pointer; font-size:16px;">📲'
-        " Kirim WhatsApp Reminder</button></a>",
+        " Buka WhatsApp & Kirim Pesan</button></a>",
         unsafe_allow_html=True,
     )

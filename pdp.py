@@ -39,11 +39,11 @@ def get_gspread_client():
   return client
 
 
-# Fungsi untuk memuat seluruh data dari satu sheet utama
+# Fungsi untuk memuat seluruh data dari satu sheet utama (Nama file disesuaikan)
 def load_database():
   try:
     client = get_gspread_client()
-    sheet = client.open("Content Database Sosmed").sheet1
+    sheet = client.open("database_batimdesign").sheet1
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
 
@@ -88,11 +88,11 @@ def load_database():
     )
 
 
-# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets
+# Fungsi untuk menyimpan seluruh DataFrame ke Google Sheets (Nama file disesuaikan)
 def save_database(df):
   try:
     client = get_gspread_client()
-    sheet = client.open("Content Database Sosmed").sheet1
+    sheet = client.open("database_batimdesign").sheet1
 
     df_to_save = df.copy()
     if "UKURAN BANNER" in df_to_save.columns:

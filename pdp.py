@@ -53,7 +53,7 @@ def load_database():
         "TANGGAL BUAT",
         "CAMPAIGN NAME",
         "UKURAN BANNER",
-        "PRODUCT SHOW BANNER",  # Diubah jadi SHOW
+        "PRODUCT SHOW BANNER",
         "CONTOH/REFERENSI BANNER",
         "LINK DRIVE",
         "CATATAN",
@@ -103,11 +103,8 @@ def save_database(df):
     sheet.clear()
     header = list(df_to_save.columns)
     rows = df_to_save.values.tolist()
-    
-    # Gunakan range update atau update langsung ke cell A1
     sheet.update(range_name="A1", values=[header] + rows)
   except Exception as e:
-    # Abaikan jika hanya menampilkan respons 200 sukses
     if "<Response [200]>" not in str(e):
       st.error(f"Gagal menyimpan ke Google Sheets: {e}")
 

@@ -1,10 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
-import io
 import os
 import urllib.parse
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 import gspread
 import pandas as pd
 import streamlit as st
@@ -28,7 +25,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Konfigurasi Akses Google Sheets & Drive via st.secrets
+# Konfigurasi Akses Google Sheets via st.secrets
 SCOPE = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -40,51 +37,6 @@ def get_gspread_client():
   creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPE)
   client = gspread.authorize(creds)
   return client
-
-
-def get_drive_service():
-  creds_dict = dict(st.secrets["gcp_service_account"])
-  creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPE)
-  return build("drive", "v3", credentials=creds)
-
-
-# Fungsi untuk mengunggah file langsung ke folder "referensi design" di Google Drive abang
-def upload_file_to_drive(uploaded_file):
-  try:
-    drive_service = get_drive_service()
-
-    # ID Folder Google Drive abang
-    PARENT_FOLDER_ID = "1P1uy0CXCNE2mdqt_3-yen-p5VuUpBsMu"
-
-    file_metadata = {"name": uploaded_file.name, "parents": [PARENT_FOLDER_ID]}
-    media = MediaIoBaseUpload(
-        io.BytesIO(uploaded_file.getvalue()),
-        mimetype=uploaded_file.type,
-        resumable=True,
-    )
-    file = (
-        drive_service.files()
-        .create(
-            body=file_metadata,
-            media_body=media,
-            fields="id, webViewLink, webContentLink",
-        )
-        .execute()
-    )
-
-    # Set izin file agar bisa dilihat siapa saja yang punya link (untuk preview gambar)
-    try:
-      permission = {"type": "anyone", "role": "reader"}
-      drive_service.files().permissions().create(
-          fileId=file.get("id"), body=permission
-      ).execute()
-    except Exception:
-      pass
-
-    return file.get("webViewLink")
-  except Exception as e:
-    st.error(f"Gagal upload ke Google Drive: {e}")
-    return ""
 
 
 # Fungsi untuk memuat seluruh data dari satu sheet utama
@@ -178,6 +130,11 @@ menu = st.sidebar.radio(
         "📊 Rekapan & Statistik",
     ],
 )
+
+# Folder lokal untuk menyimpan gambar upload
+UPLOAD_DIR = "uploaded_banners"
+if not os.path.exists(UPLOAD_DIR):
+  os.makedirs(UPLOAD_DIR)
 
 # ==========================================
 # MENU 1: DAFTAR CAMPAIGN & BANNER
@@ -303,9 +260,9 @@ if menu == "📋 Daftar Campaign & Banner":
 
           with c5:
             st.markdown("🖼️ **Ref:**")
-            img_link = str(row["CONTOH/REFERENSI BANNER"])
-            if img_link and img_link.startswith("http"):
-              st.markdown(f"[Buka Gambar]({img_link})")
+            img_path = str(row["CONTOH/REFERENSI BANNER"])
+            if img_path and os.path.exists(img_path):
+              st.image(img_path, width=50)
             else:
               st.write("-")
 
@@ -455,7 +412,7 @@ if menu == "📋 Daftar Campaign & Banner":
               edit_status = st.selectbox("Status", status_list, index=s_idx)
 
             edit_referensi = st.text_input(
-                "Link Google Drive Referensi Gambar",
+                "Path / Keterangan Contoh Referensi Gambar",
                 value=str(r_data["CONTOH/REFERENSI BANNER"]),
             )
             edit_catatan = st.text_area(
@@ -521,7 +478,7 @@ elif menu == "➕ Tambah Campaign Baru":
       status = st.selectbox("Status", ["Draft", "Pending", "Done"], index=0)
 
     uploaded_file = st.file_uploader(
-        "Upload Contoh / Referensi Banner (Gambar ke Google Drive)",
+        "Upload Contoh / Referensi Banner (Gambar)",
         type=["png", "jpg", "jpeg"],
     )
     catatan = st.text_area("Catatan Tambahan")
@@ -534,12 +491,11 @@ elif menu == "➕ Tambah Campaign Baru":
         current_len = len(st.session_state["content_db"])
         new_no = current_len + 1
 
-        drive_img_link = ""
+        ref_path = ""
         if uploaded_file is not None:
-          with st.spinner(
-              "Sedang mengunggah gambar ke folder Google Drive..."
-          ):
-            drive_img_link = upload_file_to_drive(uploaded_file)
+          ref_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
+          with open(ref_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
 
         new_data = {
             "NO": new_no,
@@ -548,7 +504,7 @@ elif menu == "➕ Tambah Campaign Baru":
             "CAMPAIGN NAME": camp_name,
             "UKURAN BANNER": ukuran_banner,
             "PRODUCT SHOW BANNER": product_show,
-            "CONTOH/REFERENSI BANNER": drive_img_link,
+            "CONTOH/REFERENSI BANNER": ref_path,
             "LINK DRIVE": link_drive,
             "CATATAN": catatan,
             "STATUS": status,
@@ -563,8 +519,7 @@ elif menu == "➕ Tambah Campaign Baru":
         )
         save_database(st.session_state["content_db"])
         st.success(
-            "Berhasil! Gambar masuk ke Google Drive & data tersimpan ke Google"
-            " Sheets."
+            "Berhasil! Campaign baru tersimpan ke Laporan Utama Google Sheets."
         )
       else:
         st.warning("Mohon setidaknya isi kolom **Campaign Name**.")
@@ -623,9 +578,9 @@ elif menu == "👔 Approval / Status Checker":
 
         with col_info2:
           st.markdown("🖼️ **Referensi:**")
-          img_link = str(row["CONTOH/REFERENSI BANNER"])
-          if img_link and img_link.startswith("http"):
-            st.markdown(f"[Buka Gambar]({img_link})")
+          img_path = str(row["CONTOH/REFERENSI BANNER"])
+          if img_path and os.path.exists(img_path):
+            st.image(img_path, width=65)
           else:
             st.write("-")
 

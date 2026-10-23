@@ -48,34 +48,15 @@ def get_drive_service():
   return build("drive", "v3", credentials=creds)
 
 
-# Fungsi untuk mengunggah file langsung ke folder khusus di Google Drive
+# Fungsi untuk mengunggah file langsung ke folder "referensi design" di Google Drive abang
 def upload_file_to_drive(uploaded_file):
   try:
     drive_service = get_drive_service()
-    folder_name = "referensi design"
 
-    # Cek apakah folder khusus tersebut sudah ada di Google Drive
-    query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
-    response = drive_service.files().list(q=query, spaces="drive").execute()
-    folders = response.get("files", [])
+    # ID Folder Google Drive abang
+    PARENT_FOLDER_ID = "1P1uy0CXCNE2mdqt_3-yen-p5VuUpBsMu"
 
-    if folders:
-      folder_id = folders[0]["id"]
-    else:
-      # Jika belum ada, buat foldernya secara otomatis
-      folder_metadata = {
-          "name": folder_name,
-          "mimeType": "application/vnd.google-apps.folder",
-      }
-      folder = (
-          drive_service.files()
-          .create(body=folder_metadata, fields="id")
-          .execute()
-      )
-      folder_id = folder.get("id")
-
-    # Upload file gambar ke dalam folder tersebut
-    file_metadata = {"name": uploaded_file.name, "parents": [folder_id]}
+    file_metadata = {"name": uploaded_file.name, "parents": [PARENT_FOLDER_ID]}
     media = MediaIoBaseUpload(
         io.BytesIO(uploaded_file.getvalue()),
         mimetype=uploaded_file.type,
@@ -100,7 +81,6 @@ def upload_file_to_drive(uploaded_file):
     except Exception:
       pass
 
-    # Mengembalikan link web Google Drive
     return file.get("webViewLink")
   except Exception as e:
     st.error(f"Gagal upload ke Google Drive: {e}")
@@ -326,8 +306,6 @@ if menu == "📋 Daftar Campaign & Banner":
             img_link = str(row["CONTOH/REFERENSI BANNER"])
             if img_link and img_link.startswith("http"):
               st.markdown(f"[Buka Gambar]({img_link})")
-            elif img_link:
-              st.write(img_link)
             else:
               st.write("-")
 
